@@ -1,0 +1,41 @@
+version: "3"
+
+services:
+  pgdatabase:
+    container_name: copa_postgresql
+    image: "bitnami/postgresql"
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRESQL_USERNAME=root
+      - POSTGRESQL_PASSWORD=docker
+      - POSTGRESQL_DATABASE=copadb
+    volumes:
+      - "pgdata:/bitnami/postgresql"
+    networks:
+      - app-network
+
+  appcopa:
+    container_name: copa-api
+    build: .
+    depends_on:
+      - pgdatabase
+    ports:
+      - "3333:3333"
+    volumes:
+      - .:/usr/app
+    links:
+      - pgdatabase
+    networks:
+      - app-network
+    environment:
+      - DATABASE_URL=postgresql://root:docker@pgdatabase:5432/copadb?schema=public
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  pgdata:
+    driver: local
