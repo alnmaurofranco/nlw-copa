@@ -48,6 +48,7 @@ model User {
   name            String
   email           String        @unique
   avatarUrl       String?
+  googleId        String        @unique
   participatingAt Participant[]
   ownerPolls      Poll[]
   createdAt       DateTime      @default(now())
