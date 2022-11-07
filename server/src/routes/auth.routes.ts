@@ -1,8 +1,17 @@
 import axios from "axios";
 import { FastifyInstance } from "fastify";
+import { prisma } from "../lib/prisma";
 import { z } from "zod";
 
 export default async function authRoutes(app: FastifyInstance) {
+  app.get("/me", async (request) => {
+    await request.jwtVerify();
+    return { user: request.user };
+  });
+  app.get("/auth/v1/google/callback", async (request) => {
+    // console.log(request);
+    return { data: 0 };
+  });
   app.post("/auth/users", async (request, reply) => {
     const createUserBodySchema = z.object({
       access_token: z.string(),
@@ -12,8 +21,9 @@ export default async function authRoutes(app: FastifyInstance) {
     }
     const { access_token } = createUserBodySchema.parse(request.body);
     const userResponse = await axios.get(
-      "https://www.googleapis.com/oauth2/v3/userinfo",
+      "https://www.googleapis.com/oauth2/v2/userinfo",
       {
+        method: "GET",
         headers: {
           Authorization: `Bearer ${access_token}`,
         },
@@ -30,6 +40,29 @@ export default async function authRoutes(app: FastifyInstance) {
       return new Error("Invalid user data");
     }
     const userInfo = userInfoSchema.parse(userData);
-    return { userInfo };
+    let user: any = await prisma.user.findUnique({
+      where: {
+        googleId: userInfo.id,
+      },
+    });
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          googleId: userInfo.id,
+          email: userInfo.email,
+          name: userInfo.name,
+          avatarUrl: userInfo.picture,
+        },
+      });
+    }
+    const token = app.jwt.sign(
+      { name: user.name, avatarUrl: user.avatarUrl },
+      {
+        expiresIn: "15m",
+        sub: user.id,
+      }
+    );
+
+    return { token };
   });
 }
